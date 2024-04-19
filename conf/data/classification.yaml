@@ -1,0 +1,4 @@
+name: classification_dataset
+val_split: 0.05
+data: ???
+preprocessor: stft

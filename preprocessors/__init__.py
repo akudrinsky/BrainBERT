@@ -1,4 +1,5 @@
 from .stft import STFTPreprocessor
+from .optim_stft import OptimizedSTFTPreprocessor
 from .morelet_preprocessor import MoreletPreprocessor
 from .superlet_preprocessor import SuperletPreprocessor
 from .wav_preprocessor import WavPreprocessor
@@ -13,12 +14,13 @@ __all__ = ["STFTPreprocessor",
            "superlet",
            "WavPreprocessor",
            "SpecPretrained",
-           "SpecPooled"
+           "SpecPooled",
+           "OptimizedSTFTPreprocessor"
           ]
 
 def build_preprocessor(preprocessor_cfg):
     if preprocessor_cfg.name == "stft":
-        extracter = STFTPreprocessor(preprocessor_cfg)
+        extracter = OptimizedSTFTPreprocessor(preprocessor_cfg)
     elif preprocessor_cfg.name == "superlet":
         extracter = SuperletPreprocessor(preprocessor_cfg)
     elif preprocessor_cfg.name == "wav_preprocessor":

@@ -5,5 +5,5 @@ time_mask_consecutive_min: 1
 time_mask_consecutive_max: 5
 freq_mask_consecutive_min: 1
 freq_mask_consecutive_max: 2
-time_mask_p: 0.10
-freq_mask_p: 0.10
+time_mask_p: 0.05
+freq_mask_p: 0.05

@@ -159,6 +159,7 @@ class Runner():
 
     def train(self):
         train_loader = self.get_batch_iterator(self.task.train_set, self.cfg.train_batch_size, shuffle=self.cfg.shuffle, num_workers=self.cfg.num_workers, persistent_workers=self.cfg.num_workers>0)
+        print(f'Epoch train size: {len(train_loader)}')
 
         total_loss = []
         best_val = {"loss": float("inf")}

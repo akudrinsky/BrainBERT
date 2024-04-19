@@ -1,5 +1,5 @@
 name: stft
 freq_channel_cutoff: 40
-nperseg: 400
-noverlap: 350
+nperseg: 100
+noverlap: 80
 normalizing: zscore

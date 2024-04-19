@@ -1,93 +1,81 @@
 from omegaconf import OmegaConf
 import torch
+from tqdm import tqdm
 import random
-from torch.utils import data 
+from torch.utils import data
+from pathlib import Path
 import os
 import numpy as np
 from scipy.io import wavfile
+import json
 from datasets import register_dataset
-from preprocessors import STFTPreprocessor
+from preprocessors import OptimizedSTFTPreprocessor
 from util.mask_utils import mask_inputs
 
 @register_dataset(name="masked_tf_dataset")
 class MaskedTFDataset(data.Dataset):
     def __init__(self, cfg, task_cfg=None, preprocessor_cfg=None):
-        #THE PLAN
-        #also make masked_tf_datased_from_cached
         self.cfg = cfg
         self.task_cfg = task_cfg
         manifest_path = cfg.data
-        manifest_path = os.path.join(manifest_path, "manifest.tsv")
-        with open(manifest_path, "r") as f:
-            lines = f.readlines() 
-        self.root_dir = lines[0].strip()
-        files, lengths = [], []
-        for x in lines[1:]:
-            row = x.strip().split('\t')
-            files.append(row[0])
-            lengths.append(row[1])
-        self.files, self.lengths = files, lengths
+        self.dataroot = Path(manifest_path).parent.absolute()
+        
+        with open(manifest_path, 'r') as file:
+            self.datajson = json.load(file)
+        # filtered_datajson = []
+        # for sample in tqdm(self.datajson, desc='Filter short samples'):
+        #     file_name = sample['eeg']
+        #     file_path = os.path.join(self.dataroot, file_name)
+        #     data = np.load(file_path)
 
+        #     length = data.shape[0]
+        #     if length >= 500:
+        #         filtered_datajson.append(sample)
+        # print(f'After filtering: {len(filtered_datajson)} / {len(self.datajson)}')
+        # self.datajson = filtered_datajson
+        
         self.cached_features = None
 
-        if 'cached_features' in cfg:
-            self.cached_features = cfg.cached_features
-            self.initialize_cached_features(cfg.cached_features)
-        elif preprocessor_cfg.name=="stft":
-            extracter = STFTPreprocessor(preprocessor_cfg)
+        if preprocessor_cfg.name=="stft":
+            extracter = OptimizedSTFTPreprocessor(preprocessor_cfg)
             self.extracter = extracter
         else:
-            raise RuntimeError("Specify preprocessor")
-
-    def initialize_cached_features(self, cache_root):
-        cfg_path = os.path.join(cache_root, "config.yaml")
-        loaded = OmegaConf.load(cfg_path)
-        assert self.cfg.preprocessor == loaded.data.preprocessor
-
-        manifest_path = os.path.join(cache_root, "manifest.tsv")
-        with open(manifest_path, "r") as f:
-            lines = f.readlines() 
-        self.cache_root_dir = lines[0].strip()
-        orig2cached = {} #Map original file to cached feature file
-        for x in lines[2:]:
-            row = x.strip().split('\t')
-            orig2cached[row[0]] = row[1]
-        self.orig2cached = orig2cached
+            raise NotImplementedError('NO!')
 
     def get_input_dim(self):
         item = self.__getitem__(0)
         return item["masked_input"].shape[-1]
 
-
     def __len__(self):
-        return len(self.lengths)
+        return len(self.datajson)
 
-    def get_cached_features(self, file_name):
-        file_name = self.orig2cached[file_name] 
-        file_name = os.path.join(self.cache_root_dir, file_name)
-        data = np.load(file_name)
-        data = np.nan_to_num(data) #For superlet caches
-        data = torch.FloatTensor(data)
-        return data
-        
     def __getitem__(self, idx):
-        file_name = self.files[idx]
-        file_path = os.path.join(self.root_dir, file_name)
-        data = np.load(file_path)
+        file_name = self.datajson[idx]['eeg']
+        file_path = os.path.join(self.dataroot, file_name)
+        wav_all_channels = np.load(file_path).astype('float32')
+        # CHECK DIMENSIONS
 
-        data = data.astype('float32')
-        #rand_len = random.randrange(1000, len(data), 1)
-        rand_len = -1
-        wav = data[:rand_len]
+        data_all_channels = torch.tensor(self.extracter(wav_all_channels.T).T)
+        # print(data_all_channels.shape)
+        
+        masked_data_all_channels, mask_label_all_channels = [], []
+        for channel in range(wav_all_channels.shape[1]):
+            masked_data, mask_label = mask_inputs(data_all_channels[:, :, channel], self.task_cfg)
 
-        if self.cached_features:
-            data = self.get_cached_features(file_name)
-        else:
-            data = self.extracter(wav)
+            masked_data_all_channels.append(masked_data)
+            mask_label_all_channels.append(mask_label)
 
-        masked_data, mask_label = mask_inputs(data, self.task_cfg) 
-        return {"masked_input": masked_data,
-                "length": data.shape[0],
-                "mask_label": mask_label,
-                "wav": wav,
-                "target": data}
+        data_all_channels = data_all_channels.reshape(data_all_channels.shape[0], -1)
+        
+        masked_data_all_channels = np.stack(masked_data_all_channels).transpose(1, 0, 2)
+        masked_data_all_channels = masked_data_all_channels.reshape(masked_data_all_channels.shape[0], -1)
+        
+        mask_label_all_channels = np.stack(mask_label_all_channels).transpose(1, 0, 2)
+        mask_label_all_channels = mask_label_all_channels.reshape(mask_label_all_channels.shape[0], -1)
+
+        return {"masked_input": torch.tensor(masked_data_all_channels),
+                "length": data_all_channels.shape[0],
+                "mask_label": torch.tensor(mask_label_all_channels),
+                "wav": torch.tensor(wav_all_channels),
+                "target": data_all_channels,
+               }

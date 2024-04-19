@@ -17,6 +17,7 @@ class PretrainMaskedCriterion(BaseCriterion):
         pad_mask = batch["attn_mask"].to(device)
         masked_input = batch["masked_input"].to(device) #potentially don't move to device if dataparallel
         mask = batch["mask_label"].bool().to(device)
+        
         output, pos_enc = model.forward(masked_input, pad_mask)
         labels = batch["target"].to(device)
         true_activity = labels.masked_select(mask)

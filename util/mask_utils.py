@@ -9,8 +9,8 @@ def get_mask_fill_value(data):
 def create_masked_intervals(data, consecutive_min, consecutive_max, mask_p, axis="time"):
     consecutive_min = consecutive_min
     consecutive_max = consecutive_max
-    assert consecutive_min <= consecutive_max
-    assert consecutive_max < data.shape[0]
+    assert consecutive_min <= consecutive_max, f'{consecutive_min}, {consecutive_max}, {axis}'
+    assert consecutive_max < data.shape[0], f'{consecutive_max}, {data.shape}, {axis}'
 
     if axis=="time":
         valid_starts = range(len(data)-consecutive_max)

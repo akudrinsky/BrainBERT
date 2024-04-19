@@ -8,6 +8,8 @@ from tasks.utils import split_dataset
 class BaseTask():
     def __init__(self, cfg):
         self.cfg = cfg
+        self.accum_grad = 50
+        self.grad_i = 0
 
     def build_model(self, cfg):
         return models.build_model(cfg)
@@ -24,12 +26,16 @@ class BaseTask():
 
     def train_step(self, batch, model, criterion, optimizer, scheduler, device, grad_clip=None):
         loss, logging_out = criterion(model, batch, device)
-        loss.backward(loss)
+        loss.backward()
         if grad_clip:
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-        optimizer.step()
-        optimizer.zero_grad()
-        scheduler.step(loss)
+        self.grad_i = self.grad_i + 1
+
+        if (self.grad_i + 1) % self.accum_grad == 0:
+            optimizer.step()
+            optimizer.zero_grad()
+            scheduler.step(loss)
+            self.grad_i = 0
 
         logging_out["grad_norm"] = grad_norm.item()
         return logging_out
@@ -38,7 +44,7 @@ class BaseTask():
         return criterions.build_criterion(cfg)
 
     def get_batch_iterator(self, dataset, batch_size, shuffle=True, **kwargs):
-        return data.DataLoader(dataset, batch_size=batch_size, **kwargs)
+        return data.DataLoader(dataset, batch_size=batch_size, pin_memory=True, **kwargs)
 
     def get_valid_outs():
         raise NotImplementedError

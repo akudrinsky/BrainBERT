@@ -27,7 +27,8 @@ def spec_collator(batch):
              "masked_input": batched_input,
              "target": batched_target,
              "mask_label": batched_mask_label,
-             "wavs": wavs}
+             "wavs": wavs,
+            }
     return batch
 
 def wav_collator(batch):
@@ -48,17 +49,15 @@ def baseline_wav_collator(batch):
            }
 
 def finetune_collator(batch):
-    specs = [b["input"] for b in batch]
+    specs = [torch.Tensor(b["spec"]) for b in batch]
     specs = pad_sequence(specs, batch_first=True)
     labels = [b["label"] for b in batch]
-    wavs = [b["wav"] for b in batch]
 
     lengths = [b["length"] for b in batch]
     pad_mask = make_pad_mask(specs, lengths)
 
-    return {"input":specs,
-            "labels":labels,
-            "wavs": wavs,
+    return {"input": specs,
+            "labels": torch.tensor(labels).long(),
             "pad_mask": pad_mask}
 
 def feature_extracter_collator(batch):

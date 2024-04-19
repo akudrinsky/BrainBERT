@@ -1,0 +1,11 @@
+name: classification_model
+hidden_dim: 768
+layer_dim_feedforward: 3072
+layer_activation: gelu
+nhead: 12
+encoder_num_layers: 6
+input_dim: 4200
+num_classes: 30
+upstream_ckpt: /mnt/scratch/kudrinsk/BrainBERT/outputs/2024-04-18/19-43-52/checkpoint_best.pth
+# /mnt/scratch/kudrinsk/BrainBERT/outputs/2024-04-18/19-43-52/checkpoint_best.pth
+# /mnt/scratch/kudrinsk/BrainBERT/outputs/2024-04-03/15-10-35/checkpoint_last.pth
